@@ -1,0 +1,4 @@
+-a dogs
+-a, --all dogs
+	-a dogs
+	-a, --all dogs
