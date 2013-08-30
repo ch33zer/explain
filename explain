@@ -1,1 +1,43 @@
-grep -A 5 -E -e '^\s*-a(,|\s*).*' regex
+#!/usr/bin/env python
+
+import sys
+import re
+import subprocess
+DEBUG=True
+def explain(args):
+    if len(args) == 0:
+        print('Nothing to explain!')
+    commandname = args[0]
+    commandargs = args[1:]
+    likelyparams = []
+    optionpattern = re.compile(r"^\s*(?:\-(?P<short>\w+)|\-\-(?P<long>\w[\w\-]+))", re.M)
+    for arg in commandargs:
+        match = optionpattern.match(arg)
+        if match:
+            if DEBUG:
+                print("match dict:",match.groupdict())
+            matches = match.groupdict()
+            if matches['short']:
+                #Add each character of the short options to likely params
+                likelyparams.extend(['-'+x for x in matches['short'] if x not in likelyparams])
+            if matches['long']:
+                likelyparams.append('--'+matches['long'])
+    if DEBUG:
+        print("likelyparams:",likelyparams)
+    try:
+        mancontent = subprocess.check_output(["man", commandname], stderr=subprocess.STDOUT)
+    except subprocess.CalledProcessError as error:
+        print('No man page for command ' + commandname)
+        return 1
+    descriptions = []
+    for param in likelyparams:
+        pattern = r"(?:^|\n|\\n)\s*"+re.escape(param)+r"(?P<desc>(?:.*(?:\n|\\n|$)){0,6})"
+        match = re.search(pattern, mancontent)
+        if match:
+            descriptions.append((param, match.groupdict()['desc'].replace("\\n", "\n")))
+        else:
+            descriptions.append((param, "\tCouldn't find documentation for parameter " + param))
+    for (arg, desc) in descriptions:
+        print(arg+":")
+        print(desc)
+explain(sys.argv[1:])
